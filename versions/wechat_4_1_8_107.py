@@ -1,4 +1,5 @@
 import time
+import random
 import uiautomation as auto
 import subprocess
 import numpy as np
@@ -65,7 +66,8 @@ class WeChat:
         self.lc = WeChatLocale(locale)
         
         # 搜索联系人后等待对话框弹出的时间（秒），可由GUI动态修改
-        self.search_wait = 0.3
+        # 支持范围格式 [min, max]，实际等待时间为随机值
+        self.search_wait = [0.3, 0.3]
         
         # 微信启动快捷键，可由GUI动态修改
         self.hotkey = "{Ctrl}{Alt}w"
@@ -126,8 +128,11 @@ class WeChat:
         pyperclip.copy(name)
         auto.SendKeys("{Ctrl}v")
 
-        # 等待客户端搜索联系人
-        time.sleep(self.search_wait)
+        # 等待客户端搜索联系人（支持范围随机等待）
+        if isinstance(self.search_wait, list):
+            time.sleep(random.uniform(self.search_wait[0], self.search_wait[1]))
+        else:
+            time.sleep(self.search_wait)  # backward compat
 
         # 现在群聊不会出现在搜索的第一行，需要手动选择
         list_control = auto.ListControl(Depth=4)

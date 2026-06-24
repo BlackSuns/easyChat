@@ -310,6 +310,43 @@ class MyDoubleSpinBox(QWidget):
         self.setLayout(layout)
 
 
+class MyRangeDoubleSpinBox(QWidget):
+    def __init__(self, desc: str, min_val: float = 0.0, max_val: float = 60.0, step: float = 0.1, **kwargs):
+        """
+        附带标签的范围DoubleSpinBox，支持小数输入，显示Min-Max两个选择框
+        Args:
+            desc: 标签描述
+            min_val: 范围最小值
+            max_val: 范围最大值
+            step: 步进值
+        """
+        super().__init__(**kwargs)
+
+        layout = QHBoxLayout()
+
+        self.label = QLabel(desc)
+
+        self.spin_box_min = QDoubleSpinBox()
+        self.spin_box_min.setDecimals(1)
+        self.spin_box_min.setSingleStep(step)
+        self.spin_box_min.setRange(min_val, max_val)
+
+        self.spin_box_max = QDoubleSpinBox()
+        self.spin_box_max.setDecimals(1)
+        self.spin_box_max.setSingleStep(step)
+        self.spin_box_max.setRange(min_val, max_val)
+
+        layout.addWidget(self.label)
+        layout.addWidget(self.spin_box_min)
+        layout.addWidget(QLabel("-"))
+        layout.addWidget(self.spin_box_max)
+        self.setLayout(layout)
+
+    def get_range(self):
+        """返回 [min, max] 范围"""
+        return [self.spin_box_min.value(), self.spin_box_max.value()]
+
+
 class MySpinBox(QWidget):
     def __init__(self, desc: str, **kwargs):
         """

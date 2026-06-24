@@ -10,7 +10,7 @@ EasyChat is a Windows-only PC WeChat automation assistant that uses UI automatio
 
 **Current supported versions**: 4.1.9.21 (default), 4.1.8.107. Earlier versions (3.9, 4.0) are no longer supported.
 
-**Unimplemented methods**: `check_new_msg()`, `get_dialogs()`, `save_dialog_pictures()`, and `get_dialogs_by_time_blocks()` raise `NotImplementedError` — they have not been adapted to WeChat 4.1+.
+**Unimplemented methods**: `check_new_msg()`, `get_dialogs()`, `save_dialog_pictures()`, and `get_dialogs_by_time_blocks()` are stub methods that raise `NotImplementedError` — they have not been adapted to WeChat 4.1+ and cannot be called.
 
 ## Prerequisites
 
@@ -77,7 +77,7 @@ The `WeChat` class wraps `uiautomation` to control WeChat's desktop UI. Key desi
 - **UI control depths are hardcoded** (e.g., `Depth=15` for search box). These break when WeChat updates its UI structure. Use `automation.py` to re-inspect the control tree after any WeChat update.
 - **All text input uses clipboard paste** (`pyperclip` → Ctrl+V) instead of direct typing, for reliability. The 0.3s delays after clipboard operations are critical — removing them causes paste failures.
 - **WeChat is opened via Ctrl+Alt+W** (not by launching the `.exe` directly). This avoids triggering the new login popup (2026/03/09 fix). Do not change the startup logic without understanding this workaround.
-- **Contact search skips `XTableCell` items** to avoid selecting groups instead of contacts (2025/12/02 fix). `search_wait` (default 0.3s, configurable in settings) controls how long to wait for search results.
+- **Contact search skips `XTableCell` items** to avoid selecting groups instead of contacts (2025/12/02 fix). `search_wait` is a `[min, max]` range (default `[0.3, 0.3]`); each search picks a random value within the range to vary timing like a human.
 - **Folded group chats** (折叠群聊) are now supported as of 2026/05/18. Previously, messages couldn't be sent to folded group chats.
 - `find_all_contacts()` returns a pandas DataFrame. It uses `rsplit(" ", maxsplit=2)` to parse contact info, which fails if names or notes contain spaces.
 
@@ -90,8 +90,8 @@ Config structure:
 {
   "settings": {
     "wechat_path": "",
-    "send_interval": 0,
-    "search_wait": 0.3,
+    "send_interval": [3.0, 8.0],
+    "search_wait": [0.3, 0.8],
     "system_version": "微信 4.1.9.21",
     "language": "zh-CN"
   },
@@ -100,6 +100,8 @@ Config structure:
   "schedules": ["2026 4 9 16 11 1-1"]
 }
 ```
+
+**Timing ranges**: `send_interval` and `search_wait` are stored as `[min, max]` lists. When a range is set (min ≠ max), the actual wait time is a random value chosen uniformly from the range on each use. Setting min = max gives deterministic (non-random) behavior.
 
 **Interrupt hotkey**: `Ctrl+Alt+Q` sets `hotkey_pressed = True` via the `keyboard` library global hook. Sending loops should check this flag to stop mid-process. The hotkey is registered in `wechat_gui.py` using `keyboard.add_hotkey()` and remains active throughout the application lifecycle.
 
@@ -115,9 +117,7 @@ Custom widgets: `MyListWidget` (double-click to edit), `MySpinBox`, `MyDoubleSpi
 
 ### clipboard.py — File Clipboard
 
-`setClipboardFiles(paths)` uses the Windows `win32clipboard` API with a DROPFILES structure to stage files for Ctrl+V sending. 
-
-**Known bug**: Line 22 references undefined variable `matedata` (should be `metadata`). This will cause a `NameError` if the code path is reached. To fix: change `matedata` to `metadata` on line 22.
+`setClipboardFiles(paths)` uses the Windows `win32clipboard` API with a DROPFILES structure to stage files for Ctrl+V sending.
 
 ## Data Formats
 
@@ -155,7 +155,6 @@ Custom widgets: `MyListWidget` (double-click to edit), `MySpinBox`, `MyDoubleSpi
 - Chinese comments and variable names are mixed with English throughout.
 - Error handling is minimal; high-level `try/except` catches most failures.
 - GUI layouts are built programmatically with `QVBoxLayout`/`QHBoxLayout` — no `.ui` files or Qt Designer.
-- No unit tests exist.
 
 ## Adding New WeChat Versions
 

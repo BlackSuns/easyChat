@@ -4,6 +4,16 @@ import os
 import itertools
 import json
 import importlib
+import random
+
+
+def _migrate_range(val, default_min, default_max):
+    """迁移旧配置的单值为 [min, max] 范围格式"""
+    if isinstance(val, (int, float)):
+        return [float(val), float(val)]
+    if isinstance(val, list) and len(val) == 2:
+        return val
+    return [default_min, default_max]
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -36,8 +46,8 @@ class WechatGUI(QWidget):
             self.config = {
                 "settings": {
                     "wechat_path": "",
-                    "send_interval": 0,
-                    "search_wait": 0.3,
+                    "send_interval": [0.0, 0.0],
+                    "search_wait": [0.3, 0.3],
                     "system_version": get_default_version(),
                     "language": "zh-CN",
                     "wechat_hotkey": "{Ctrl}{Alt}w",
@@ -48,13 +58,19 @@ class WechatGUI(QWidget):
             }
             self.save_config()
 
+        # 迁移旧配置的单值为范围格式
+        self.config["settings"]["send_interval"] = _migrate_range(
+            self.config["settings"].get("send_interval", 0), 0.0, 0.0)
+        self.config["settings"]["search_wait"] = _migrate_range(
+            self.config["settings"].get("search_wait", 0.3), 0.3, 0.3)
+
         version_label = self.config["settings"].get("system_version", get_default_version())
         WeChat = _load_wechat_class(version_label)
         self.wechat = WeChat(
             path=self.config["settings"]["wechat_path"],
             locale=self.config["settings"]["language"],
         )
-        self.wechat.search_wait = self.config["settings"].get("search_wait", 0.3)
+        self.wechat.search_wait = self.config["settings"]["search_wait"]
         self.wechat.hotkey = self.config["settings"].get("wechat_hotkey", "{Ctrl}{Alt}w")
         self.clock = ClockThread()
         # 连接定时任务错误信号到弹窗函数
@@ -81,7 +97,7 @@ class WechatGUI(QWidget):
             path=self.config["settings"]["wechat_path"],
             locale=self.config["settings"]["language"],
         )
-        self.wechat.search_wait = self.config["settings"].get("search_wait", 0.3)
+        self.wechat.search_wait = self.config["settings"]["search_wait"]
         self.wechat.hotkey = self.config["settings"].get("wechat_hotkey", "{Ctrl}{Alt}w")
         # prevent_func 持有的是绑定方法引用，版本切换后必须重新绑定
         if hasattr(self, "clock"):
@@ -459,8 +475,8 @@ class WechatGUI(QWidget):
             # 在每次发送时进行初始化
             self.hotkey_pressed = False
 
-            # 获取发送间隔
-            interval = send_interval.spin_box.value()
+            # 获取发送间隔范围
+            interval_range = send_interval.get_range()
 
             try:
                 # 如果未定义范围的开头和结尾，则默认发送全部信息
@@ -470,8 +486,8 @@ class WechatGUI(QWidget):
 
                 # 获得用户编号列表
                 for user_i in range(self.contacts_view.count()):
-                    # 等待间隔时间
-                    time.sleep(int(interval))
+                    # 等待随机间隔时间
+                    time.sleep(random.uniform(interval_range[0], interval_range[1]))
 
                     rank, name = self.contacts_view.item(user_i).text().split(':', 1)
                     # For the first message, we need to search user
@@ -529,29 +545,32 @@ class WechatGUI(QWidget):
         send_btn = QPushButton("发送")
         send_btn.clicked.connect(send_msg)
 
-        # 发送不同用户时的间隔
-        send_interval = MySpinBox("发送不同用户时的间隔（秒）")
-        send_interval.spin_box.setValue(self.config["settings"]["send_interval"])
+        # 发送不同用户时的间隔（范围：最小值-最大值）
+        send_interval = MyRangeDoubleSpinBox("发送不同用户时的间隔（秒）")
+        send_interval.spin_box_min.setValue(self.config["settings"]["send_interval"][0])
+        send_interval.spin_box_max.setValue(self.config["settings"]["send_interval"][1])
 
         # 添加修改间隔的响应
-        def change_spin_box():
-            interval = send_interval.spin_box.value()
-            self.config["settings"]["send_interval"] = interval
+        def change_send_interval():
+            self.config["settings"]["send_interval"] = send_interval.get_range()
             self.save_config()
 
-        send_interval.spin_box.valueChanged.connect(change_spin_box)
+        send_interval.spin_box_min.valueChanged.connect(change_send_interval)
+        send_interval.spin_box_max.valueChanged.connect(change_send_interval)
 
-        # 搜索联系人等待时间
-        search_wait = MyDoubleSpinBox("搜索联系人等待时间（秒）")
-        search_wait.spin_box.setValue(self.config["settings"].get("search_wait", 0.3))
+        # 搜索联系人等待时间（范围：最小值-最大值）
+        search_wait = MyRangeDoubleSpinBox("搜索联系人等待时间（秒）")
+        search_wait.spin_box_min.setValue(self.config["settings"]["search_wait"][0])
+        search_wait.spin_box_max.setValue(self.config["settings"]["search_wait"][1])
 
         def change_search_wait():
-            val = search_wait.spin_box.value()
-            self.config["settings"]["search_wait"] = val
-            self.wechat.search_wait = val
+            range_val = search_wait.get_range()
+            self.config["settings"]["search_wait"] = range_val
+            self.wechat.search_wait = range_val
             self.save_config()
 
-        search_wait.spin_box.valueChanged.connect(change_search_wait)
+        search_wait.spin_box_min.valueChanged.connect(change_search_wait)
+        search_wait.spin_box_max.valueChanged.connect(change_search_wait)
 
         vbox_left.addWidget(info)
         vbox_left.addWidget(self.msg)

@@ -19,7 +19,7 @@ def setClipboardFiles(paths):
 	try:
 		win32clipboard.EmptyClipboard()
 		win32clipboard.SetClipboardData(
-			win32clipboard.CF_HDROP, matedata + data)
+			win32clipboard.CF_HDROP, metadata + data)
 	finally:
 		win32clipboard.CloseClipboard()
 
